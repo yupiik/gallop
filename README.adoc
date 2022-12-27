@@ -1,0 +1,33 @@
+= Gallop
+
+[abstract]
+Enable to give some throttling to concurrent executions in bash (or other) scripts.
+
+== Build
+
+IMPORTANT: must be executed on a linux amd64 or arm64 depending on your target platform.
+
+[source,bash]
+----
+mvn clean install arthur:native-image
+----
+
+== Idea
+
+The idea behind the program is to create a thread pool (arbitrary set to the concurrency size but this is a detail) and associate to it a throttler (`Semaphore`).
+The concurrency set in the `start` command will limit the enabled concurrency for `exec` done by the `exec` command.
+
+This enables to submit hundreds of tasks and throttle them without having to take care of that in the script which is always very fragile.
+
+TIP: using multiple identifiers - we recommend to use `$$` identifier - the script pid - as base but you can decline it, ex `$$_pool1` - you can have multiple concurrency in the same script.
+
+== Usage
+
+[source,bash]
+----
+include::src/sample/demo.sh[]
+----
+
+== Installation
+
+Either use hava and execute the binary (`java -cp gallop.jar <args>`) or directly the native binary of ~23M: `gallop`.
