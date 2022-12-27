@@ -111,7 +111,7 @@
                     <noJekyll>true</noJekyll>
                     <serverId>${minisite.serverId}</serverId>
                     <branch>refs/heads/gh-pages</branch>
-                    <url>https://github.com/yupiik/bundlebee.git</url>
+                    <url>https://github.com/yupiik/gallop.git</url>
                   </git>
                 </configuration>
               </execution>
@@ -267,6 +267,16 @@ under the License.
           </execution>
         </executions>
         <configuration>
+          <siteBase>//www.yupiik.io/gallop</siteBase>
+          <logoText>Yupiik Gallop</logoText>
+          <indexText>Yupiik Gallop</indexText>
+          <indexSubTitle>${project.description}</indexSubTitle>
+          <customScripts>
+            &lt;script&gt;
+            document.querySelector('div.site-logo &gt; a').href =
+            document.location.pathname.indexOf('/gallop') == 0 ? '/gallop/index.html' : '/index.html';
+            &lt;/script&gt;
+          </customScripts>
           <skipRendering>true</skipRendering>
           <git>
             <ignore>true</ignore>
