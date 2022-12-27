@@ -54,7 +54,13 @@ public class OneCommandClient extends BaseSocket {
                 buffer.flip();
 
                 channel.write(buffer);
-                return;
+
+                final var response = ByteBuffer.allocate(1);
+                if (channel.read(response) != 1 || response.array()[0] != 1) {
+                    throw new IllegalStateException("Invalid response: " + response.array()[0]);
+                } else {
+                    return;
+                }
             } catch (final IOException ioe) {
                 // retry
                 try {

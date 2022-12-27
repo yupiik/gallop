@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StartTest {
     @Test
-    void start() throws IOException, InterruptedException {
+    void start() throws InterruptedException {
         final var received = new CountDownLatch(1);
         final var serverStopped = new CountDownLatch(1);
         final var serverStarted = new CountDownLatch(1);
