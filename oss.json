@@ -1,0 +1,12 @@
+{
+  "skip": true,
+  "name": "Gallop",
+  "description": "Gallop is a light concurrency manager for linux and scripts.",
+  "website": "https://www.yupiik.io/gallop/",
+  "logo": "https://www.yupiik.com/img/logo.png",
+  "group": "Yupiik Stack",
+  "categories": [
+    "scripts",
+    "concurrency"
+  ]
+}
