@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Gallop">
+    <meta name="description" content="Simple concurrency task manager.">
     <meta name="author" content="Yupiik Minisite Generator">
     <meta name="generator" content="Yupiik Minisite Generator">
     
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/asciidoctor.js/1.5.5-5/css/asciidoctor.min.css" integrity="sha512-kI7tn5cuEg16kMeXnYmg8rEJPxbxzEM7Gsr191iQdLDevFBLXPCSU9aZWSVuP61tMZWU3nBAR1cJ7SmXnOGLZw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.3/css/bootstrap.min.css" integrity="sha512-oc9+XSs1H243/FRN9Rw62Fn8EtxjEYWHXRvjS43YtueEewbS6ObfXcJNyohjHqVKFPoXXUxwc+q1K7Dee6vv9g==" crossorigin="anonymous" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/vs2015.min.css" integrity="sha512-w8aclkBlN3Ha08SMwFKXFJqhSUx2qlvTBFLLelF8sm4xQnlg64qmGB/A6pBIKy0W8Bo51yDMDtQiPLNRq1WMcQ==" crossorigin="anonymous" />
-    <link id="theme-style" rel="stylesheet" href="http://localhost:4200/css/theme.css?v=0.0.2-SNAPSHOT">
+    <link id="theme-style" rel="stylesheet" href="//www.yupiik.io/gallop/css/theme.css?v=0.0.2-SNAPSHOT">
     
 </head>
 <body>
@@ -25,9 +25,9 @@
         <div class="branding docs-branding">
             <div class="container-fluid position-relative py-2">
                 <div class="docs-logo-wrapper">
-	                <div class="site-logo"><a title="Home" class="navbar-brand" href="http://localhost:4200/index.html">
+	                <div class="site-logo"><a title="Home" class="navbar-brand" href="//www.yupiik.io/gallop/index.html">
 	                <img class="logo-icon mr-2" src="//www.yupiik.com/img/favicon.png" alt="logo">
-	                <span class="logo-text">Gallop <span class="text-alt">Docs</span></span></a></div>
+	                <span class="logo-text">Yupiik Gallop <span class="text-alt">Docs</span></span></a></div>
                 </div>
 	            <div class="docs-top-utilities d-flex justify-content-end align-items-center">
 					
@@ -46,7 +46,7 @@
             <h3>Menu</h3>
             <ul>
                 <li>
-                    <a title="Gallop" href="http://localhost:4200/getting-started.html">
+                    <a title="Gallop" href="//www.yupiik.io/gallop/getting-started.html">
                         <i class="fas fa-play"></i>Getting Started
                     </a>
                 </li>
@@ -230,9 +230,12 @@ ex: $ gallop exec $$ /opt/bin/myexec run "my task"</p>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/json.min.js" integrity="sha512-37sW1XqaJmseHAGNg4N4Y01u6g2do6LZL8tsziiL5CMXGy04Th65OXROw2jeDeXLo5+4Fsx7pmhEJJw77htBFg==" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/dockerfile.min.js" integrity="sha512-eRNl3ty7GOJPBN53nxLgtSSj2rkYj5/W0Vg0MFQBw8xAoILeT6byOogENHHCRRvHil4pKQ/HbgeJ5DOwQK3SJA==" crossorigin="anonymous"></script>
     <script>if (!(window.minisite || {}).skipHighlightJs) { hljs.highlightAll(); }</script>
-    <script src="http://localhost:4200/js/minisite.js?v=0.0.2-SNAPSHOT"></script>
+    <script src="//www.yupiik.io/gallop/js/minisite.js?v=0.0.2-SNAPSHOT"></script>
     <script>$('.page-content-body').generatedNavMenu();</script>
-    
+    <script>
+            document.querySelector('div.site-logo > a').href =
+            document.location.pathname.indexOf('/gallop') == 0 ? '/gallop/index.html' : '/index.html';
+            </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.3/fuse.min.js" integrity="sha512-neoBxVNv0UMXjoilAYGxfWrSsW6iAVclx7vQKdPJ9Peet1bM5YQjU0aIB8LtH8iNPa+pAyMZprBBw2ZQ/Q1LjQ==" crossorigin="anonymous"></script>
 
 </body>
