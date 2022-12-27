@@ -49,11 +49,14 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Clock.systemUTC;
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
+import static java.util.Optional.ofNullable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-// todo: add error handling
 public class Start extends BaseSocket {
+    private final boolean debug = Boolean.parseBoolean(ofNullable(System.getenv("GALLOP_DEBUG"))
+            .orElseGet(() -> System.getProperty("gallop.debug", "false")));
+
     public void exec(final List<String> args) throws IOException {
         if (args.size() != 3 && args.size() != 4) {
             throw new IllegalArgumentException("Invalid start parameters, must be <id> <concurrency> <timeout in seconds> [<check exit code>]");
@@ -83,7 +86,9 @@ public class Start extends BaseSocket {
 
         final var clock = systemUTC();
         final var end = timeout <= 0 ? Instant.MAX : clock.instant().plusSeconds(timeout);
-        final var poolSize = Math.max(1, concurrency);
+        final var poolSize = ofNullable(System.getenv("GALLOP_POOL_SIZE"))
+                .map(Integer::parseInt)
+                .orElseGet(() -> Math.max(1, concurrency));
         final var pool = new ThreadPoolExecutor(
                 poolSize, poolSize, 1, MINUTES, new LinkedBlockingQueue<>(),
                 new ThreadFactory() {
@@ -104,6 +109,7 @@ public class Start extends BaseSocket {
 
             final var failed = new AtomicBoolean(false);
             final var bufferPerClient = new ConcurrentHashMap<SocketChannel, ClientBuffer>();
+            boolean await = false;
             while (!failed.get()) {
                 if (clock.instant().isAfter(end)) {
                     System.err.println("[GALLOP] Timeout occurred for id=" + args.get(0) + ", port=" + pid + ", quitting");
@@ -111,6 +117,28 @@ public class Start extends BaseSocket {
                         pool.shutdownNow();
                     }
                     stop(pool, socket, selector, hook);
+                    break;
+                }
+
+                if (await) {
+                    if (debug) {
+                        System.out.println("[GALLOP][DEBUG] awaiting " + pool.getQueue().size() + " tasks");
+                    }
+                    doAwait(
+                            pool,
+                            Math.max(0, end.minusMillis(clock.instant().toEpochMilli()).toEpochMilli()),
+                            () -> {
+                                try {
+                                    if (debug) {
+                                        System.out.println("[GALLOP][DEBUG] Acquiring " + concurrency + " slots in the semaphore");
+                                    }
+                                    throttler.acquire(concurrency);
+
+                                    awaitProcesses(processes, clock, end); // shouldn't be needed but in case of unlikely concurrency
+                                } catch (final InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            });
                     break;
                 }
 
@@ -122,10 +150,9 @@ public class Start extends BaseSocket {
                         if (key.isAcceptable()) {
                             onAccept(socket, selector);
                         } else if (key.isReadable() && onRead(
-                                key, pool, bufferPerClient, clock, end, throttler,
-                                (process, ex) -> onExecProcess(checkExitCode, processes, failed, process, ex),
-                                () -> awaitProcesses(processes, clock, end))) {
-                            return;
+                                key, pool, bufferPerClient, throttler,
+                                (process, ex) -> onExecProcess(checkExitCode, processes, failed, process, ex))) {
+                            await = true; // after other keys processing
                         }
                     } catch (final RuntimeException | IOException e) {
                         System.err.println("[GALLOP][ERROR] " + e.getMessage());
@@ -140,6 +167,10 @@ public class Start extends BaseSocket {
             if (failed.get()) {
                 throw new IllegalStateException("Some process execution failed");
             }
+        } catch (final RuntimeException | IOException re) {
+            System.err.println("[GALLOP][ERROR] " + re.getMessage());
+            re.printStackTrace();
+            throw re;
         } finally {
             if (!processes.isEmpty()) {
                 killAll(processes);
@@ -148,31 +179,37 @@ public class Start extends BaseSocket {
         }
     }
 
-    private static void awaitProcesses(final List<Process> processes, final Clock clock, final Instant end) {
-        synchronized (processes) {
-            for (final var process : processes) {
-                final var max = end.minusMillis(clock.instant().toEpochMilli()).toEpochMilli();
-                if (max <= 0) {
-                    return; // give up
-                }
-                try {
-                    process.waitFor(max, MILLISECONDS);
-                } catch (final InterruptedException e) {
-                    throw new IllegalStateException(e);
-                }
+    private void awaitProcesses(final List<Process> processes, final Clock clock, final Instant end) {
+        final List<Process> copy;
+        synchronized (processes) { // if we lock the whole process we prevent the onExit() callback to clean the list too
+            copy = new ArrayList<>(processes);
+        }
+
+        System.out.println("[GALLOP] Remaining processes to await: " + copy.size());
+        for (final var process : copy) {
+            if (!process.isAlive()) {
+                continue;
+            }
+
+            final var max = end.minusMillis(clock.instant().toEpochMilli()).toEpochMilli();
+            if (max <= 0) {
+                return; // give up
+            }
+
+            try {
+                process.waitFor(max, MILLISECONDS);
+            } catch (final InterruptedException e) {
+                throw new IllegalStateException(e);
             }
         }
     }
 
-    private static void onExecProcess(final boolean checkExitCode, final ArrayList<Process> processes, final AtomicBoolean failed, final Process process, final Exception ex) {
-        if (ex != null) {
-            failed.set(true);
-            return;
-        }
-
+    private static void onExecProcess(final boolean checkExitCode, final List<Process> processes, final AtomicBoolean failed,
+                                      final Process process, final Exception ex) {
         synchronized (processes) {
             processes.add(process);
         }
+
         process.onExit().whenComplete((ok, ko) -> {
             synchronized (processes) {
                 processes.remove(process);
@@ -183,6 +220,10 @@ public class Start extends BaseSocket {
                 failed.set(true);
             }
         });
+
+        if (ex != null) {
+            failed.set(true);
+        }
     }
 
     private void killAll(final List<Process> processes) {
@@ -195,12 +236,10 @@ public class Start extends BaseSocket {
         });
     }
 
-    private boolean onRead(final SelectionKey key, final ExecutorService pool,
+    private boolean onRead(final SelectionKey key, final ThreadPoolExecutor pool,
                            final Map<SocketChannel, ClientBuffer> bufferPerClient,
-                           final Clock clock, final Instant end,
                            final Semaphore throttler,
-                           final BiConsumer<Process, Exception> processes,
-                           final Runnable awaiter) throws IOException {
+                           final BiConsumer<Process, Exception> processes) throws IOException {
         final var client = (SocketChannel) key.channel();
 
         final var bytes = ByteBuffer.allocate(1024);
@@ -211,10 +250,7 @@ public class Start extends BaseSocket {
             bufferPerClient.remove(client);
             final var cmd = command.orElseThrow();
             return switch (cmd.name()) {
-                case "await" -> {
-                    doAwait(pool, Math.max(0, end.minusMillis(clock.instant().toEpochMilli()).toEpochMilli()), awaiter);
-                    yield true;
-                }
+                case "await" -> true;
                 case "exec" -> {
                     doExec(pool, cmd.args(), processes, throttler);
                     yield false;
@@ -260,9 +296,12 @@ public class Start extends BaseSocket {
         }
     }
 
-    private void doExec(final ExecutorService pool, final List<String> args, final BiConsumer<Process, Exception> processes,
+    private void doExec(final ThreadPoolExecutor pool, final List<String> args,
+                        final BiConsumer<Process, Exception> processes,
                         final Semaphore throttler) {
-        // System.out.println("[GALLOP] Exec: " + args);
+        if (debug) {
+            System.out.println("[GALLOP][DEBUG] Exec: " + args);
+        }
         pool.submit(() -> {
             try {
                 throttler.acquire();
@@ -270,44 +309,66 @@ public class Start extends BaseSocket {
                 System.err.println("[GALLOP][ERROR] Interrupted, will not execute " + args);
                 throw new IllegalStateException(e);
             }
+            if (debug) {
+                System.out.println("[GALLOP][DEBUG] Starting " + args);
+            }
             try {
                 final var processBuilder = new ProcessBuilder(args).inheritIO();
                 processBuilder.environment().put("GALLOP", "true");
                 final var process = processBuilder.start();
-                process.onExit().whenComplete((ok, ko) -> throttler.release());
                 processes.accept(process, null);
+                process.onExit().whenComplete((ok, ko) -> {
+                    throttler.release();
+                    if (debug) {
+                        System.out.println("[GALLOP][DEBUG] Finished " + args +
+                                ", exitCode=" + (ok == null ? ko.getMessage() : ok.exitValue()) +
+                                ". Remaining tasks: " + pool.getQueue().size());
+                    }
+                });
             } catch (final Exception e) {
                 System.err.println("[GALLOP][ERROR] Can't execute " + args + ": " + e.getMessage());
                 processes.accept(null, e);
                 throttler.release();
+                if (debug) {
+                    System.out.println("[GALLOP][DEBUG] Failed " + args + ": " + e.getMessage());
+                }
                 throw new IllegalStateException(e);
             }
         });
     }
 
-    private void doAwait(final ExecutorService pool, final long timeout, final Runnable awaiter) {
+    private void doAwait(final ExecutorService pool, final long timeout, final Runnable preCondition) {
         System.out.println("[GALLOP] Await: " + timeout);
+
+        if (debug) {
+            System.out.println("[GALLOP][DEBUG] Running awaiters (waiting to get as much permissions as the concurrency)");
+        }
+        preCondition.run();
+
         pool.shutdown();
-        if (timeout > 0) {
-            try {
-                if (!pool.awaitTermination(timeout, MILLISECONDS)) {
-                    System.err.println("[GALLOP][ERROR] tried awaiting " + timeout + "ms but pool didn't reach the end of execution, killing it");
-                    pool.shutdownNow();
-                } else {
-                    awaiter.run();
-                }
-            } catch (final InterruptedException e) {
-                Thread.currentThread().interrupt();
+        if (debug) {
+            System.out.println("[GALLOP][DEBUG] Pool shut down");
+        }
+
+        try {
+            if (debug) {
+                System.out.println("[GALLOP][DEBUG] Awaiting pool " + timeout + "ms");
             }
-        } else {
-            System.err.println("[GALLOP][ERROR] No timeout to await");
-            if (!pool.isTerminated()) {
+            if (!pool.awaitTermination(Math.max(1, timeout), MILLISECONDS)) {
+                System.err.println("[GALLOP][ERROR] tried awaiting " + timeout + "ms but pool didn't reach the end of execution, killing it");
                 pool.shutdownNow();
+            } else if (debug) {
+                System.out.println("[GALLOP][DEBUG] pool awaited");
             }
+        } catch (final InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
     private void stop(final ExecutorService pool, final ServerSocketChannel socket, final Selector selector, final Thread hook) {
+        if (debug) {
+            System.out.println("[GALLOP][DEBUG] stopping");
+        }
         try {
             if (!pool.isShutdown()) {
                 pool.shutdown();
@@ -336,7 +397,6 @@ public class Start extends BaseSocket {
                     }
                 }
             } finally {
-
                 try {
                     hook.run();
                     Runtime.getRuntime().removeShutdownHook(hook);

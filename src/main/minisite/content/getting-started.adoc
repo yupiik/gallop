@@ -37,7 +37,7 @@ Start command takes a timeout which enables to stop the server anyway if somethi
 * timeout in seconds: the timeout gallop can stay alive, negative or zero means infinite (not recommended)
 * check exit code: `true` or `false`, if `true` it will check the exit code of `exec` command is `0`
 ex: $ gallop start $$ 8 60 true &
-NOTE: it is important to start gallop with `&` (as a background process) since it will start a socket and keep running tasks.
+NOTE: it is important to start gallop with `&` (as a background process) since it will start a socket and keep running tasks. Also don't forget to use `wait` at the end of your script to await it.
 - `await <id>`: synchronization point for all the submitted tasks, will force gallop to not accept any new task until it is started again.
 * id: identifier of the gallop process, you can use `$$` to get the script pid (recommended)
 ex: $ gallop await
@@ -46,6 +46,8 @@ NOTE: it is a blocking operation.
 * id: gallop scheduler identifier (must match start value)
 * command: the command
 ex: $ gallop exec $$ /opt/bin/myexec run "my task"
+
+TIP: `start` command supports the environment variable `GALLOP_POOL_SIZE` to customize the thread pool size which can be way less then the concurrency in general since process execution is reactive.
 
 == Installation
 

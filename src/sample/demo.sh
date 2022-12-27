@@ -20,3 +20,6 @@ $GALLOP_BINARY exec $$ echo process 6
 
 # await all executions
 $GALLOP_BINARY await $$
+
+# await start process to end (started with &)
+wait
