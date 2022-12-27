@@ -21,7 +21,7 @@
 
   <groupId>io.yupiik.gallop</groupId>
   <artifactId>gallop</artifactId>
-  <version>0.0.2-SNAPSHOT</version>
+  <version>0.0.2</version>
   <name>Yupiik Gallop</name>
   <description>Simple concurrency task manager.</description>
   <url>https://github.com/yupiik/gallop</url>
@@ -317,7 +317,7 @@ under the License.
     <connection>scm:git:https://github.com/yupiik/gallop.git</connection>
     <developerConnection>scm:git:https://github.com/yupiik/gallop.git</developerConnection>
     <url>https://github.com/yupiik/gallop.git</url>
-    <tag>gallop-0.0.1</tag>
+    <tag>gallop-0.0.2</tag>
   </scm>
 
   <distributionManagement>
