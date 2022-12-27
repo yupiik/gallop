@@ -1,0 +1,53 @@
+= Gallop
+:minisite-index: 100
+:minisite-index-title: Getting Started
+:minisite-index-description: How to get started with the project.
+:minisite-index-icon: play
+
+== Idea
+
+The idea behind the program is to create a thread pool (arbitrary set to the concurrency size but this is a detail) and associate to it a throttler (`Semaphore`).
+The concurrency set in the `start` command will limit the enabled concurrency for `exec` done by the `exec` command.
+
+This enables to submit hundreds of tasks and throttle them without having to take care of that in the script which is always very fragile.
+
+TIP: using multiple identifiers - we recommend to use `$$` identifier - the script pid - as base but you can decline it, ex `$$_pool1` - you can have multiple concurrency in the same script.
+
+== Usage
+
+Gallop is articulated around 3 main commands:
+
+* `start`: will start a local server (unix socket) which will listen and execute other commands,
+* `exec`: client command (means `start` must be executed before) which sends an command to execute in the throttler,
+* `await`: client command (means `start` must be executed before) which awaits all the submited tasks are finished.
+
+All commands takes an identifier as first parameter.
+It is convenient to use `$$` from a script since it will take the script `pid`.
+
+The unix socket is created in `GALLOP_SOCKET_DIRECTORY` directory (can be overriden with an environment variable) which defaults to `/tmp`.
+Filename will be `gallop_<id>`.
+
+Start command takes a timeout which enables to stop the server anyway if something fails, if negative or zero it is considered infinite.
+
+== Commands Detail
+
+- `start <id> <concurrency> <timeout in seconds> <check exit code>`: starts gallop background process for the enclosing script. It will stop when `gallop await` is called and all tasks are done or when the timeout is reached.
+* id: identifier of the gallop process, you can use `$$` to get the script pid (recommended)
+* concurrency: how many tasks can be executed concurrently (matches a number of threads internally)
+* timeout in seconds: the timeout gallop can stay alive, negative or zero means infinite (not recommended)
+* check exit code: `true` or `false`, if `true` it will check the exit code of `exec` command is `0`
+ex: $ gallop start $$ 8 60 true &
+NOTE: it is important to start gallop with `&` (as a background process) since it will start a socket and keep running tasks.
+- `await <id>`: synchronization point for all the submitted tasks, will force gallop to not accept any new task until it is started again.
+* id: identifier of the gallop process, you can use `$$` to get the script pid (recommended)
+ex: $ gallop await
+NOTE: it is a blocking operation.
+- `exec <id> <command>`: force the execution of a command in gallop scheduler
+* id: gallop scheduler identifier (must match start value)
+* command: the command
+ex: $ gallop exec $$ /opt/bin/myexec run "my task"
+
+== Installation
+
+Either use hava and execute the binary (`java -cp gallop.jar <args>`) or directly the native binary of ~23M: `gallop`.
+

@@ -89,6 +89,39 @@
         </plugins>
       </build>
     </profile>
+    <profile> <!--  mvn clean package -Pgh-pages  -->
+      <id>gh-pages</id>
+      <properties>
+        <minisite.serverId>github.com</minisite.serverId>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>io.yupiik.maven</groupId>
+            <artifactId>yupiik-tools-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>gh-pages</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>minisite</goal>
+                </goals>
+                <configuration>
+                  <skipRendering>false</skipRendering>
+                  <git>
+                    <ignore>false</ignore>
+                    <noJekyll>true</noJekyll>
+                    <serverId>${minisite.serverId}</serverId>
+                    <branch>refs/heads/gh-pages</branch>
+                    <url>https://github.com/yupiik/bundlebee.git</url>
+                  </git>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <build>
@@ -222,10 +255,25 @@ under the License.
           <allowIncompleteClasspath>false</allowIncompleteClasspath>
         </configuration>
       </plugin>
-      <plugin>
+      <plugin> <!-- mvn yupiik-tools:serve-minisite -->
         <groupId>io.yupiik.maven</groupId>
         <artifactId>yupiik-tools-maven-plugin</artifactId>
         <version>1.1.2</version>
+        <executions>
+          <execution>
+            <id>buildDoc</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>minisite</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <skipRendering>true</skipRendering>
+          <git>
+            <ignore>true</ignore>
+          </git>
+        </configuration>
       </plugin>
     </plugins>
   </build>
